@@ -139,18 +139,18 @@ export default function KasirApp() {
   };
 
   const handleExport = () => {
-    const today = new Date().toLocaleDateString();
-    const todayTransactions = transactions.filter(tx => tx.time.includes(today));
-
-    const detailSheet = todayTransactions.map(tx => ({
+    // REMOVE filtering by today's date
+    const allTransactions = transactions;
+  
+    const detailSheet = allTransactions.map(tx => ({
       'Waktu': tx.time,
       'Nama': tx.nama ? tx.nama : 'Pelanggan',
       'Item': tx.items.map(i => `${i.name} x ${i.qty}`).join(', '),
       'Total': tx.total
     }));
-
+  
     const itemMap: Record<string, { name: string; qty: number; income: number }> = {};
-    todayTransactions.forEach(tx => {
+    allTransactions.forEach(tx => {
       tx.items.forEach(item => {
         if (!itemMap[item.name]) {
           itemMap[item.name] = { name: item.name, qty: 0, income: 0 };
@@ -159,69 +159,58 @@ export default function KasirApp() {
         itemMap[item.name].income += item.price * item.qty;
       });
     });
-
+  
     const itemSummary = Object.values(itemMap);
     const totalIncome = itemSummary.reduce((sum, i) => sum + i.income, 0);
     const topItem = itemSummary.reduce((prev, curr) => (curr.qty > prev.qty ? curr : prev), { name: '', qty: 0, income: 0 });
-
+  
     const summarySheet = [
-      { Keterangan: 'Total Transaksi', Nilai: todayTransactions.length },
+      { Keterangan: 'Total Transaksi', Nilai: allTransactions.length },
       { Keterangan: 'Total Omset', Nilai: totalIncome },
       { Keterangan: 'Menu Terlaris', Nilai: topItem.name },
       { Keterangan: 'Jumlah Terjual', Nilai: topItem.qty },
     ];
-
-    // Tambah total jumlah terjual di bagian bawah sheet itemSummary
+  
     const totalQty = itemSummary.reduce((sum, i) => sum + i.qty, 0);
     const totalRow = { name: 'TOTAL', qty: totalQty, income: totalIncome };
     const finalItemSummary = [...itemSummary, totalRow];
-
-    // Sheet 1: Detail Transaksi
+  
     const ws1 = XLSX.utils.json_to_sheet(detailSheet);
     ws1['!cols'] = fitToColumn(detailSheet);
-
-    // Styling header of detail sheet
     ['A1', 'B1', 'C1'].forEach(cell => {
-      ws1[cell].s = {
-        font: { bold: true, color: { rgb: 'FFFFFF' } },
-        fill: { fgColor: { rgb: '4F81BD' } },
-        alignment: { horizontal: 'center', vertical: 'center' },
-      };
+        ws1[cell].s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '4F81BD' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+        };
     });
-
-    // Sheet 2: Rekap Per Item
+  
     const ws2 = XLSX.utils.json_to_sheet(finalItemSummary);
     ws2['!cols'] = fitToColumn(finalItemSummary);
-
-    // Styling header of rekap sheet
     ['A1', 'B1', 'C1'].forEach(cell => {
-      ws2[cell].s = {
-        font: { bold: true, color: { rgb: 'FFFFFF' } },
-        fill: { fgColor: { rgb: '4F81BD' } },
-        alignment: { horizontal: 'center', vertical: 'center' },
-      };
+        ws2[cell].s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '4F81BD' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+        };
     });
-
-    // Sheet 3: Kesimpulan
+  
     const ws3 = XLSX.utils.json_to_sheet(summarySheet);
     ws3['!cols'] = fitToColumn(summarySheet);
-
-    // Styling header of summary sheet
     ['A1', 'B1'].forEach(cell => {
-      ws3[cell].s = {
-        font: { bold: true, color: { rgb: 'FFFFFF' } },
-        fill: { fgColor: { rgb: '4F81BD' } },
-        alignment: { horizontal: 'center', vertical: 'center' },
-      };
+        ws3[cell].s = {
+          font: { bold: true, color: { rgb: 'FFFFFF' } },
+          fill: { fgColor: { rgb: '4F81BD' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+        };
     });
-
+  
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws1, 'Detail Transaksi');
     XLSX.utils.book_append_sheet(wb, ws2, 'Rekap Per Item');
     XLSX.utils.book_append_sheet(wb, ws3, 'Kesimpulan');
-
-    // Write file
-    const fileName = `riwayat-harian-${today.replace(/\//g, '-')}.xlsx`;
+  
+    const fileName = `riwayat-penjualan.xlsx`; // changed filename
     XLSX.writeFile(wb, fileName);
   };
 
