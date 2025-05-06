@@ -1,0 +1,23 @@
+{
+    "short_name": "Senada",
+    "name": "Kopi Senada",
+    "description": "Kopi Senada",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#ffffff",
+    "icons": [
+      {
+        "src": "/icons/pwa-150x150.jpg",
+        "sizes": "144x144",
+        "type": "image/jpg"
+      },
+      {
+        "src": "/icons/pwa-150x150.jpg",
+        "sizes": "150x150",
+        "type": "image/jpg"
+      }
+  
+    ]
+  }
+  
