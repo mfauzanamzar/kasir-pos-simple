@@ -18,6 +18,7 @@ interface Transaction {
   items: OrderItem[];
   total: number;
   time: string;
+  nama: string;
 }
 
 const menuItems: MenuItem[] = [
@@ -33,6 +34,7 @@ const menuItems: MenuItem[] = [
 export default function KasirApp() {
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+  const [nama, setNama] = useState('');
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -108,9 +110,11 @@ export default function KasirApp() {
       items: orders,
       total: getTotal(),
       time: new Date().toLocaleString(),
+      nama: nama,
     };
     saveTransactions(newTx);
     setOrders([]);
+    setNama('');
     alert('Transaksi Disimpan!');
   };
 
@@ -140,6 +144,7 @@ export default function KasirApp() {
 
     const detailSheet = todayTransactions.map(tx => ({
       'Waktu': tx.time,
+      'Nama': tx.nama ? tx.nama : 'Pelanggan',
       'Item': tx.items.map(i => `${i.name} x ${i.qty}`).join(', '),
       'Total': tx.total
     }));
@@ -242,6 +247,16 @@ export default function KasirApp() {
 
         <div className="lg:w-1/2">
           <h2 className="text-lg font-semibold mb-2">Pesanan:</h2>
+          <div className="mb-4">
+            <label className="block mb-1 font-medium">Nama Pelanggan</label>
+            <input
+              type="text"
+              value={nama}
+              onChange={(e) => setNama(e.target.value)}
+              placeholder="Masukkan nama"
+              className="w-full p-2 rounded-xl border bg-white text-[#1E3C30]"
+            />
+          </div>
           <div className="bg-white text-[#1E3C30] p-4 rounded-xl shadow mb-4">
             {orders.length === 0 && <p>Belum ada pesanan.</p>}
             {orders.map((item) => (
@@ -292,8 +307,8 @@ export default function KasirApp() {
           <div className="bg-white text-[#1E3C30] p-4 rounded-xl shadow">
             {transactions.length === 0 && <p>Belum ada transaksi.</p>}
             {[...transactions].sort((a, b) => b.id - a.id).map((tx) => (
-              <div key={tx.id} className="mb-4 border-b pb-2">
-                <div className="text-sm text-gray-500">{tx.time}</div>
+            <div key={tx.id} className="mb-4 border-b pb-2">
+              <div className="text-sm text-gray-500">{tx.time} - <strong>{tx.nama ? tx.nama : 'Pelanggan'}</strong></div>
                 {tx.items.map((i) => (
                   <div key={i.id} className="text-sm">{i.name} x {i.qty}</div>
                 ))}
