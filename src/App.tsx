@@ -2,6 +2,9 @@
 import { useEffect, useState } from 'react';
 import { RiDeleteBin6Line } from "react-icons/ri";
 import * as XLSX from 'xlsx';
+import Modal from 'react-modal';
+import { toast, Zoom } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 
 interface MenuItem {
   id: number;
@@ -19,6 +22,7 @@ interface Transaction {
   total: number;
   time: string;
   nama: string;
+  status: 'pending' | 'paid';
 }
 
 const menuItems: MenuItem[] = [
@@ -29,12 +33,15 @@ const menuItems: MenuItem[] = [
   { id: 5, name: 'Ice Coffee Caramel', price: 23000 },
   { id: 6, name: 'Ice Coffee Lemonade', price: 23000 },
   { id: 7, name: 'Ice Matcha', price: 23000 },
+  { id: 8, name: 'Ice Chocolate', price: 20000 },
 ];
 
 export default function KasirApp() {
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [nama, setNama] = useState('');
+  const [pendingOrders, setPendingOrders] = useState<OrderItem[]>([]);
+  const [modalIsOpen, setModalIsOpen] = useState(false);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -66,8 +73,8 @@ export default function KasirApp() {
     setShowInstallPrompt(false);
   };
 
-  const [orders, setOrders] = useState<OrderItem[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+
 
   useEffect(() => {
     const saved = localStorage.getItem('transactions');
@@ -83,50 +90,52 @@ export default function KasirApp() {
   };
 
   const addToOrder = (item: MenuItem) => {
-    const existing = orders.find((o) => o.id === item.id);
+    const existing = pendingOrders.find((o) => o.id === item.id);
     if (existing) {
-      setOrders(
-        orders.map((o) =>
+      setPendingOrders(
+        pendingOrders.map((o) =>
           o.id === item.id ? { ...o, qty: o.qty + 1 } : o
         )
       );
     } else {
-      setOrders([...orders, { ...item, qty: 1 }]);
+      setPendingOrders([...pendingOrders, { ...item, qty: 1 }]);
     }
   };
 
   const removeFromOrder = (id: number) => {
-    setOrders(orders.filter((o) => o.id !== id));
+    setPendingOrders(pendingOrders.filter((o) => o.id !== id));
   };
 
   const getTotal = () => {
-    return orders.reduce((total, item) => total + item.price * item.qty, 0);
+    return pendingOrders.reduce((total, item) => total + item.price * item.qty, 0);
   };
 
-  const handleSave = () => {
-    if (orders.length === 0) return alert('Tidak ada pesanan.');
+  const handleAddOrder = () => {
+    if (pendingOrders.length === 0) return alert('Tidak ada pesanan.');
     const newTx: Transaction = {
       id: Date.now(),
-      items: orders,
+      items: pendingOrders,
       total: getTotal(),
       time: new Date().toLocaleString(),
       nama: nama,
+      status: 'pending' // Set initial status as pending
     };
     saveTransactions(newTx);
-    setOrders([]);
+    setPendingOrders([]);
     setNama('');
-    alert('Transaksi Disimpan!');
+    toast.success('Pesanan berhasil dibuat!');
   };
 
-
-  const fitToColumn = (data: any[]) => {
-    const keys = Object.keys(data[0] || {});
-    return keys.map((key) => ({
-      wch: Math.max(
-        key.length,
-        ...data.map((row) => String(row[key] || '').length)
-      ) + 2 // padding
-    }));
+  const handleCompletePayment = (txId: number) => {
+    const updatedTransactions = transactions.map(tx =>
+      tx.id === txId
+        ? { ...tx, status: 'paid' }
+        : tx
+    ) as Transaction[];
+    setTransactions(updatedTransactions);
+    setModalIsOpen(false);
+    localStorage.setItem('transactions', JSON.stringify(updatedTransactions));
+    toast.success('Pesanan Terselesaikan');
   };
 
 
@@ -139,83 +148,172 @@ export default function KasirApp() {
   };
 
   const handleExport = () => {
-    // REMOVE filtering by today's date
-    const allTransactions = transactions;
-  
-    const detailSheet = allTransactions.map(tx => ({
-      'Waktu': tx.time,
-      'Nama': tx.nama ? tx.nama : 'Pelanggan',
-      'Item': tx.items.map(i => `${i.name} x ${i.qty}`).join(', '),
-      'Total': tx.total
-    }));
-  
-    const itemMap: Record<string, { name: string; qty: number; income: number }> = {};
-    allTransactions.forEach(tx => {
-      tx.items.forEach(item => {
-        if (!itemMap[item.name]) {
-          itemMap[item.name] = { name: item.name, qty: 0, income: 0 };
-        }
-        itemMap[item.name].qty += item.qty;
-        itemMap[item.name].income += item.price * item.qty;
-      });
-    });
-  
-    const itemSummary = Object.values(itemMap);
-    const totalIncome = itemSummary.reduce((sum, i) => sum + i.income, 0);
-    const topItem = itemSummary.reduce((prev, curr) => (curr.qty > prev.qty ? curr : prev), { name: '', qty: 0, income: 0 });
-  
-    const summarySheet = [
-      { Keterangan: 'Total Transaksi', Nilai: allTransactions.length },
-      { Keterangan: 'Total Omset', Nilai: totalIncome },
-      { Keterangan: 'Menu Terlaris', Nilai: topItem.name },
-      { Keterangan: 'Jumlah Terjual', Nilai: topItem.qty },
-    ];
-  
-    const totalQty = itemSummary.reduce((sum, i) => sum + i.qty, 0);
-    const totalRow = { name: 'TOTAL', qty: totalQty, income: totalIncome };
-    const finalItemSummary = [...itemSummary, totalRow];
-  
-    const ws1 = XLSX.utils.json_to_sheet(detailSheet);
-    ws1['!cols'] = fitToColumn(detailSheet);
-    ['A1', 'B1', 'C1'].forEach(cell => {
-        ws1[cell].s = {
-          font: { bold: true, color: { rgb: 'FFFFFF' } },
-          fill: { fgColor: { rgb: '4F81BD' } },
-          alignment: { horizontal: 'center', vertical: 'center' },
-        };
-    });
-  
-    const ws2 = XLSX.utils.json_to_sheet(finalItemSummary);
-    ws2['!cols'] = fitToColumn(finalItemSummary);
-    ['A1', 'B1', 'C1'].forEach(cell => {
-        ws2[cell].s = {
-          font: { bold: true, color: { rgb: 'FFFFFF' } },
-          fill: { fgColor: { rgb: '4F81BD' } },
-          alignment: { horizontal: 'center', vertical: 'center' },
-        };
-    });
-  
-    const ws3 = XLSX.utils.json_to_sheet(summarySheet);
-    ws3['!cols'] = fitToColumn(summarySheet);
-    ['A1', 'B1'].forEach(cell => {
-        ws3[cell].s = {
-          font: { bold: true, color: { rgb: 'FFFFFF' } },
-          fill: { fgColor: { rgb: '4F81BD' } },
-          alignment: { horizontal: 'center', vertical: 'center' },
-        };
-    });
+    // Group transactions by date
+    const transactionsByDate = transactions.reduce((acc, tx) => {
+      const date = tx.time.split(',')[0];
+      if (!acc[date]) {
+        acc[date] = [];
+      }
+      acc[date].push(tx);
+      return acc;
+    }, {} as Record<string, Transaction[]>);
   
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws1, 'Detail Transaksi');
-    XLSX.utils.book_append_sheet(wb, ws2, 'Rekap Per Item');
-    XLSX.utils.book_append_sheet(wb, ws3, 'Kesimpulan');
   
-    const fileName = `riwayat-penjualan.xlsx`; // changed filename
+    // Process each day's transactions
+    Object.entries(transactionsByDate).forEach(([date, dayTransactions]) => {
+      // Initialize itemMap with all menu items
+      const itemMap: Record<string, { name: string; qty: number; income: number }> = {};
+      menuItems.forEach(item => {
+        itemMap[item.name] = { name: item.name, qty: 0, income: 0 };
+      });
+  
+      // Calculate daily summary
+      dayTransactions.forEach(tx => {
+        tx.items.forEach(item => {
+          itemMap[item.name].qty += item.qty;
+          itemMap[item.name].income += item.price * item.qty;
+        });
+      });
+  
+      const itemSummary = Object.values(itemMap);
+      const totalIncome = itemSummary.reduce((sum, i) => sum + i.income, 0);
+      const topItem = itemSummary.reduce((prev, curr) =>
+        (curr.qty > prev.qty ? curr : prev),
+        { name: '', qty: 0, income: 0 }
+      );
+  
+      const totalQty = itemSummary.reduce((sum, i) => sum + i.qty, 0);
+      const paidTransactions = dayTransactions.filter(tx => tx.status === 'paid').length;
+      const pendingTransactions = dayTransactions.filter(tx => tx.status === 'pending').length;
+  
+      // Create combined sheet data
+      const sheetData = [
+        // Header
+        ['LAPORAN PENJUALAN'],
+        ['Tanggal', date],
+        [], // Empty row for spacing
+  
+        // Summary Section
+        ['RINGKASAN'],
+        ['Total Transaksi', dayTransactions.length],
+        ['Total Omset', totalIncome],
+        ['Menu Terlaris', topItem.name],
+        ['Jumlah Terjual', topItem.qty],
+        ['Transaksi Dibayar', paidTransactions],
+        ['Transaksi Belum Dibayar', pendingTransactions],
+        [], // Empty row for spacing
+  
+        // Item Summary Section
+        ['REKAP PER ITEM'],
+        ['Menu', 'Jumlah Terjual', 'Total Pendapatan'],
+        ...itemSummary.map(item => [item.name, item.qty, item.income]),
+        ['TOTAL', totalQty, totalIncome],
+        [], // Empty row for spacing
+  
+        // Transaction Details Section
+        ['DETAIL TRANSAKSI'],
+        ['Waktu', 'Nama', 'Status', 'Item', 'Total'],
+        ...dayTransactions.map(tx => [
+          tx.time,
+          tx.nama || 'Pelanggan',
+          tx.status === 'paid' ? 'Dibayar' : 'Belum Dibayar',
+          tx.items.map(i => `${i.name} x ${i.qty}`).join(', '),
+          tx.total
+        ])
+      ];
+
+      // Create worksheet
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+      // Apply styling
+      const titleStyle = {
+        font: { bold: true, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: '1E3C30' } },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+
+      const headerStyle = {
+        font: { bold: true, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: '4F81BD' } },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+
+      // Style the title
+      ws['A1'].s = titleStyle;
+      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+
+      // Style section headers
+      ['A4', 'A12', 'A24'].forEach(cell => {
+        if (ws[cell]) {
+          ws[cell].s = titleStyle;
+          ws['!merges'] = [
+            ...(ws['!merges'] || []),
+            { s: { r: parseInt(cell.slice(1)) - 1, c: 0 }, e: { r: parseInt(cell.slice(1)) - 1, c: 4 } }
+          ];
+        }
+      });
+
+      // Style headers
+      ['A13', 'B13', 'C13', 'A20', 'B20', 'C20', 'D20', 'E20'].forEach(cell => {
+        if (ws[cell]) ws[cell].s = headerStyle;
+      });
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 20 }, // Waktu
+        { wch: 15 }, // Nama
+        { wch: 15 }, // Status
+        { wch: 40 }, // Item
+        { wch: 15 }  // Total
+      ];
+
+      // Add sheet to workbook
+      const formattedDate = date.replace(/\//g, '-');
+      XLSX.utils.book_append_sheet(wb, ws, formattedDate);
+    });
+
+    // Add overall summary sheet
+    const allTransactions = transactions;
+    const overallSummary = [
+      ['RINGKASAN KESELURUHAN'],
+      ['Total Hari', Object.keys(transactionsByDate).length],
+      ['Total Transaksi', allTransactions.length],
+      ['Total Omset', allTransactions.reduce((sum, tx) => sum + tx.total, 0)],
+      ['Transaksi Dibayar', allTransactions.filter(tx => tx.status === 'paid').length],
+      ['Transaksi Belum Dibayar', allTransactions.filter(tx => tx.status === 'pending').length]
+    ];
+
+    const wsOverall = XLSX.utils.aoa_to_sheet(overallSummary);
+    wsOverall['A1'].s = {
+      font: { bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: '1E3C30' } },
+      alignment: { horizontal: 'center', vertical: 'center' }
+    };
+    wsOverall['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
+    wsOverall['!cols'] = [{ wch: 20 }, { wch: 15 }];
+
+    XLSX.utils.book_append_sheet(wb, wsOverall, 'Ringkasan');
+
+    const fileName = `riwayat-penjualan-${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 
   return (
     <div className="p-4 max-w-7xl  mx-auto bg-[#1E3C30] min-h-screen text-white">
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick={false}
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+        transition={Zoom}
+        />
       <h1 className="!text-xl text-center lg:!text-4xl font-bold mb-4">Kasir Booth Kopi</h1>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6 auto-rows-fr">
@@ -247,8 +345,8 @@ export default function KasirApp() {
             />
           </div>
           <div className="bg-white text-[#1E3C30] p-4 rounded-xl shadow mb-4">
-            {orders.length === 0 && <p>Belum ada pesanan.</p>}
-            {orders.map((item) => (
+            {pendingOrders.length === 0 && <p>Belum ada pesanan.</p>}
+            {pendingOrders.map((item) => (
               <div key={item.id} className="flex justify-between items-center mb-2 gap-4">
                 <span>{item.name} x {item.qty}</span>
                 <div className="flex-[0_0_135px] flex no-wrap items-center">
@@ -256,7 +354,7 @@ export default function KasirApp() {
                   <button className="!bg-transparent !border-0 hover:!border-0 focus:!border-0"
                     onClick={() => removeFromOrder(item.id)}
                   ><RiDeleteBin6Line className="text-red-500" /></button>
-                </div> 
+                </div>
               </div>
             ))}
             <hr className="my-2" />
@@ -268,10 +366,17 @@ export default function KasirApp() {
 
           <button
             className="w-full bg-green-500 text-white p-3 rounded-xl shadow hover:bg-green-600 mb-4"
+            onClick={handleAddOrder}
+          >
+            Tambah Pesanan
+          </button>
+
+          {/* <button
+            className="w-full bg-green-500 text-white p-3 rounded-xl shadow hover:bg-green-600 mb-4"
             onClick={handleSave}
           >
             Simpan Transaksi
-          </button>
+          </button> */}
 
           <button
             className="w-full bg-blue-500 text-white p-3 rounded-xl shadow hover:bg-blue-600 mb-4"
@@ -296,8 +401,49 @@ export default function KasirApp() {
           <div className="bg-white text-[#1E3C30] p-4 rounded-xl shadow">
             {transactions.length === 0 && <p>Belum ada transaksi.</p>}
             {[...transactions].sort((a, b) => b.id - a.id).map((tx) => (
-            <div key={tx.id} className="mb-4 border-b pb-2">
-              <div className="text-sm text-gray-500">{tx.time} - <strong>{tx.nama ? tx.nama : 'Pelanggan'}</strong></div>
+              <div key={tx.id} className="mb-4 border-b pb-2">
+                <div className="flex justify-between items-start">
+                  <div className="text-sm text-gray-500">
+                    {tx.time} - <strong>{tx.nama ? tx.nama : 'Pelanggan'}</strong>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {tx.status === 'pending' ? (
+                      <>
+                        <span className="text-red-500 italic px-3 py-1 rounded-lg text-sm">
+                          Belum dibayar
+                        </span>
+                        <button
+                          onClick={() => setModalIsOpen(true)}
+                          className="!bg-blue-600 !text-white !px-3 !py-1 !rounded-lg !text-sm hover:!bg-yellow-600"
+                        >
+                          Selesaikan
+                        </button>
+                        <Modal style={{
+                          overlay: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                          },
+                          content: {
+                            maxWidth: '400px',
+                            maxHeight: '200px',
+                            margin: 'auto',
+                            padding: '2rem',
+                            borderRadius: '10px',
+                            border: 'none',
+                            textAlign: 'center',
+                          },
+                        }} isOpen={modalIsOpen} onRequestClose={() => setModalIsOpen(false)}>
+                          <h2 className="text-lg font-semibold text-[#1E3C30]">Konfirmasi Pembayaran</h2>
+                          <p className="text-sm text-[#1E3C30] mb-4">Klik tombol di bawah untuk menyelesaikan pembayaran pesanan.</p>
+                          <button className="!bg-green-500 !text-white !px-3 !py-2 !rounded-lg hover:!bg-green-600" onClick={() => handleCompletePayment(tx.id)}>Selesaikan</button>
+                        </Modal>
+                      </>
+                    ) : (
+                      <span className="text-green-500 italic px-3 py-1 rounded-lg text-sm">
+                        Sudah Dibayar
+                      </span>
+                    )}
+                  </div>
+                </div>
                 {tx.items.map((i) => (
                   <div key={i.id} className="text-sm">{i.name} x {i.qty}</div>
                 ))}
@@ -306,18 +452,19 @@ export default function KasirApp() {
             ))}
           </div>
         </div>
+
       </div>
 
       {showInstallPrompt && (
         <div className="fixed bottom-0 w-full z-50 right-0">
           <div className="bg-white text-[#1E3C30] p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] flex justify-between items-center">
             <p>Install aplikasi kasir ke perangkat kamu?</p>
-          <button
-            onClick={handleInstallClick}
-            className="bg-[#1E3C30] text-white px-4 py-2 rounded hover:bg-[#163026]"
-          >
-            Install
-          </button>
+            <button
+              onClick={handleInstallClick}
+              className="bg-[#1E3C30] text-white px-4 py-2 rounded hover:bg-[#163026]"
+            >
+              Install
+            </button>
           </div>
         </div>
       )}
