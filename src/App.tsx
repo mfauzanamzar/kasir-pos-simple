@@ -34,6 +34,8 @@ const menuItems: MenuItem[] = [
   { id: 6, name: 'Ice Coffee Lemonade', price: 23000 },
   { id: 7, name: 'Ice Matcha', price: 23000 },
   { id: 8, name: 'Ice Chocolate', price: 20000 },
+  { id: 9, name: 'Ice Red Velvet', price: 20000 },
+  { id: 10, name: 'Ice Taro', price: 20000 },
 ];
 
 export default function KasirApp() {
@@ -42,6 +44,10 @@ export default function KasirApp() {
   const [nama, setNama] = useState('');
   const [pendingOrders, setPendingOrders] = useState<OrderItem[]>([]);
   const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [modalDeleteHistoryIsOpen, setModalDeleteHistoryIsOpen] = useState(false);
+
+  const openModalDeleteHistory = () => setModalDeleteHistoryIsOpen(true);
+  const closeModalDeleteHistory = () => setModalDeleteHistoryIsOpen(false);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -157,9 +163,9 @@ export default function KasirApp() {
       acc[date].push(tx);
       return acc;
     }, {} as Record<string, Transaction[]>);
-  
+
     const wb = XLSX.utils.book_new();
-  
+
     // Process each day's transactions
     Object.entries(transactionsByDate).forEach(([date, dayTransactions]) => {
       // Initialize itemMap with all menu items
@@ -167,7 +173,7 @@ export default function KasirApp() {
       menuItems.forEach(item => {
         itemMap[item.name] = { name: item.name, qty: 0, income: 0 };
       });
-  
+
       // Calculate daily summary
       dayTransactions.forEach(tx => {
         tx.items.forEach(item => {
@@ -175,25 +181,25 @@ export default function KasirApp() {
           itemMap[item.name].income += item.price * item.qty;
         });
       });
-  
+
       const itemSummary = Object.values(itemMap);
       const totalIncome = itemSummary.reduce((sum, i) => sum + i.income, 0);
       const topItem = itemSummary.reduce((prev, curr) =>
         (curr.qty > prev.qty ? curr : prev),
         { name: '', qty: 0, income: 0 }
       );
-  
+
       const totalQty = itemSummary.reduce((sum, i) => sum + i.qty, 0);
       const paidTransactions = dayTransactions.filter(tx => tx.status === 'paid').length;
       const pendingTransactions = dayTransactions.filter(tx => tx.status === 'pending').length;
-  
+
       // Create combined sheet data
       const sheetData = [
         // Header
         ['LAPORAN PENJUALAN'],
         ['Tanggal', date],
         [], // Empty row for spacing
-  
+
         // Summary Section
         ['RINGKASAN'],
         ['Total Transaksi', dayTransactions.length],
@@ -203,14 +209,14 @@ export default function KasirApp() {
         ['Transaksi Dibayar', paidTransactions],
         ['Transaksi Belum Dibayar', pendingTransactions],
         [], // Empty row for spacing
-  
+
         // Item Summary Section
         ['REKAP PER ITEM'],
         ['Menu', 'Jumlah Terjual', 'Total Pendapatan'],
         ...itemSummary.map(item => [item.name, item.qty, item.income]),
         ['TOTAL', totalQty, totalIncome],
         [], // Empty row for spacing
-  
+
         // Transaction Details Section
         ['DETAIL TRANSAKSI'],
         ['Waktu', 'Nama', 'Status', 'Item', 'Total'],
@@ -313,7 +319,7 @@ export default function KasirApp() {
         pauseOnHover
         theme="light"
         transition={Zoom}
-        />
+      />
       <h1 className="!text-xl text-center lg:!text-4xl font-bold mb-4">Kasir Booth Kopi</h1>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6 auto-rows-fr">
@@ -341,7 +347,7 @@ export default function KasirApp() {
               value={nama}
               onChange={(e) => setNama(e.target.value)}
               placeholder="Masukkan nama"
-              className="w-full p-2 rounded-xl border bg-white text-[#1E3C30]"
+              className="w-full p-4 rounded-xl border bg-white text-[#1E3C30]"
             />
           </div>
           <div className="bg-white text-[#1E3C30] p-4 rounded-xl shadow mb-4">
@@ -387,12 +393,38 @@ export default function KasirApp() {
 
           {transactions.length > 0 && (
             <button
-              onClick={handleClearTransactions}
+              onClick={openModalDeleteHistory}
               className="w-full bg-red-500 text-white p-3 rounded-xl shadow hover:bg-red-600"
             >
               Hapus Semua Riwayat
             </button>
           )}
+          <Modal style={{
+            overlay: {
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            },
+            content: {
+              maxWidth: '400px',
+              maxHeight: 'max-content',
+              margin: 'auto',
+              padding: '2rem',
+              borderRadius: '10px',
+              border: 'none',
+              textAlign: 'center',
+              inset: '20px',
+            },
+          }} isOpen={modalDeleteHistoryIsOpen} onRequestClose={closeModalDeleteHistory}>
+            <h2 className="text-lg font-semibold text-[#1E3C30]">Hapus Semua Riwayat?</h2>
+            <p className="text-sm text-[#1E3C30] mb-4">Apakah Anda yakin ingin menghapus seluruh riwayat pesanan? Tindakan ini tidak dapat dibatalkan.</p>
+            <div style={{ marginTop: '1.5rem' }}>
+              <button onClick={handleClearTransactions} style={{ backgroundColor: '#dc3545', color: 'white', padding: '8px 16px', marginRight: '10px', border: 'none', borderRadius: '5px' }}>
+                Hapus
+              </button>
+              <button onClick={closeModalDeleteHistory} style={{ padding: '8px 16px', border: '1px solid gray', borderRadius: '5px' }}>
+                Batal
+              </button>
+            </div>
+          </Modal>
 
         </div>
 
@@ -430,6 +462,7 @@ export default function KasirApp() {
                             borderRadius: '10px',
                             border: 'none',
                             textAlign: 'center',
+                            inset: '10px',
                           },
                         }} isOpen={modalIsOpen} onRequestClose={() => setModalIsOpen(false)}>
                           <h2 className="text-lg font-semibold text-[#1E3C30]">Konfirmasi Pembayaran</h2>
