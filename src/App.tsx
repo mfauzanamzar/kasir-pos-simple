@@ -10,6 +10,7 @@ interface MenuItem {
   id: number;
   name: string;
   price: number;
+  category: 'iceCoffee' | 'nonCoffee';
 }
 
 interface OrderItem extends MenuItem {
@@ -23,19 +24,25 @@ interface Transaction {
   time: string;
   nama: string;
   status: 'pending' | 'paid';
+  paymentMethod?: 'cash' | 'qris';
 }
 
 const menuItems: MenuItem[] = [
-  { id: 1, name: 'Kopi Senada', price: 18000 },
-  { id: 2, name: 'Kopi Mantap', price: 18000 },
-  { id: 3, name: 'Kopi Aren', price: 20000 },
-  { id: 4, name: 'Ice Coffee Hazelnut', price: 23000 },
-  { id: 5, name: 'Ice Coffee Caramel', price: 23000 },
-  { id: 6, name: 'Ice Coffee Lemonade', price: 23000 },
-  { id: 7, name: 'Ice Matcha', price: 23000 },
-  { id: 8, name: 'Ice Chocolate', price: 20000 },
-  { id: 9, name: 'Ice Red Velvet', price: 20000 },
-  { id: 10, name: 'Ice Taro', price: 20000 },
+  // Ice Coffee Section
+  { id: 1, name: 'Kopi Senada', price: 18000, category: 'iceCoffee' },
+  { id: 2, name: 'Kopi Mantap', price: 18000, category: 'iceCoffee' },
+  { id: 3, name: 'Kopi Aren', price: 20000, category: 'iceCoffee' },
+  { id: 4, name: 'Ice Coffee Lemonade', price: 23000, category: 'iceCoffee' },
+  { id: 5, name: 'Ice Coffee Caramel', price: 23000, category: 'iceCoffee' },
+  { id: 6, name: 'Ice Coffee Huzelnut', price: 23000, category: 'iceCoffee' },
+  
+  // Non-Coffee Section
+  { id: 8, name: 'Choco Ice', price: 20000, category: 'nonCoffee' },
+  { id: 9, name: 'Redvelvet Ice', price: 20000, category: 'nonCoffee' },
+  { id: 10, name: 'Taro Ice', price: 20000, category: 'nonCoffee' },
+  { id: 10, name: 'Matcha Ice', price: 23000, category: 'nonCoffee' },
+  { id: 10, name: 'Choco Huzelnut Ice', price: 23000, category: 'nonCoffee' },
+
 ];
 
 export default function KasirApp() {
@@ -85,7 +92,15 @@ export default function KasirApp() {
   useEffect(() => {
     const saved = localStorage.getItem('transactions');
     if (saved) {
-      setTransactions(JSON.parse(saved));
+      const parsedTransactions = JSON.parse(saved);
+      // Set default payment method as 'cash' for existing paid transactions
+      const updatedTransactions = parsedTransactions.map((tx: Transaction) => ({
+        ...tx,
+        paymentMethod: tx.status === 'paid' && !tx.paymentMethod ? 'cash' : tx.paymentMethod
+      }));
+      setTransactions(updatedTransactions);
+      // Save the updated transactions back to localStorage
+      localStorage.setItem('transactions', JSON.stringify(updatedTransactions));
     }
   }, []);
 
@@ -132,10 +147,10 @@ export default function KasirApp() {
     toast.success('Pesanan berhasil dibuat!');
   };
 
-  const handleCompletePayment = (txId: number) => {
+  const handleCompletePayment = (txId: number, paymentMethod: 'cash' | 'qris') => {
     const updatedTransactions = transactions.map(tx =>
       tx.id === txId
-        ? { ...tx, status: 'paid' }
+        ? { ...tx, status: 'paid', paymentMethod }
         : tx
     ) as Transaction[];
     setTransactions(updatedTransactions);
@@ -175,11 +190,21 @@ export default function KasirApp() {
       });
 
       // Calculate daily summary
+      let totalCash = 0;
+      let totalQris = 0;
       dayTransactions.forEach(tx => {
         tx.items.forEach(item => {
           itemMap[item.name].qty += item.qty;
           itemMap[item.name].income += item.price * item.qty;
         });
+        // Add to payment method totals
+        if (tx.status === 'paid') {
+          if (tx.paymentMethod === 'cash') {
+            totalCash += tx.total;
+          } else if (tx.paymentMethod === 'qris') {
+            totalQris += tx.total;
+          }
+        }
       });
 
       const itemSummary = Object.values(itemMap);
@@ -208,6 +233,8 @@ export default function KasirApp() {
         ['Jumlah Terjual', topItem.qty],
         ['Transaksi Dibayar', paidTransactions],
         ['Transaksi Belum Dibayar', pendingTransactions],
+        ['Total Pembayaran Cash', totalCash],
+        ['Total Pembayaran QRIS', totalQris],
         [], // Empty row for spacing
 
         // Item Summary Section
@@ -219,11 +246,12 @@ export default function KasirApp() {
 
         // Transaction Details Section
         ['DETAIL TRANSAKSI'],
-        ['Waktu', 'Nama', 'Status', 'Item', 'Total'],
+        ['Waktu', 'Nama', 'Status', 'Metode Pembayaran', 'Item', 'Total'],
         ...dayTransactions.map(tx => [
           tx.time,
           tx.nama || 'Pelanggan',
           tx.status === 'paid' ? 'Dibayar' : 'Belum Dibayar',
+          tx.paymentMethod ? (tx.paymentMethod === 'cash' ? 'Cash' : 'QRIS') : '-',
           tx.items.map(i => `${i.name} x ${i.qty}`).join(', '),
           tx.total
         ])
@@ -247,21 +275,21 @@ export default function KasirApp() {
 
       // Style the title
       ws['A1'].s = titleStyle;
-      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
 
       // Style section headers
-      ['A4', 'A12', 'A24'].forEach(cell => {
+      ['A4', 'A14', 'A26'].forEach(cell => {
         if (ws[cell]) {
           ws[cell].s = titleStyle;
           ws['!merges'] = [
             ...(ws['!merges'] || []),
-            { s: { r: parseInt(cell.slice(1)) - 1, c: 0 }, e: { r: parseInt(cell.slice(1)) - 1, c: 4 } }
+            { s: { r: parseInt(cell.slice(1)) - 1, c: 0 }, e: { r: parseInt(cell.slice(1)) - 1, c: 5 } }
           ];
         }
       });
 
       // Style headers
-      ['A13', 'B13', 'C13', 'A20', 'B20', 'C20', 'D20', 'E20'].forEach(cell => {
+      ['A15', 'B15', 'C15', 'A27', 'B27', 'C27', 'D27', 'E27', 'F27'].forEach(cell => {
         if (ws[cell]) ws[cell].s = headerStyle;
       });
 
@@ -270,6 +298,7 @@ export default function KasirApp() {
         { wch: 20 }, // Waktu
         { wch: 15 }, // Nama
         { wch: 15 }, // Status
+        { wch: 15 }, // Metode Pembayaran
         { wch: 40 }, // Item
         { wch: 15 }  // Total
       ];
@@ -281,13 +310,22 @@ export default function KasirApp() {
 
     // Add overall summary sheet
     const allTransactions = transactions;
+    const totalCashOverall = allTransactions
+      .filter(tx => tx.status === 'paid' && tx.paymentMethod === 'cash')
+      .reduce((sum, tx) => sum + tx.total, 0);
+    const totalQrisOverall = allTransactions
+      .filter(tx => tx.status === 'paid' && tx.paymentMethod === 'qris')
+      .reduce((sum, tx) => sum + tx.total, 0);
+
     const overallSummary = [
       ['RINGKASAN KESELURUHAN'],
       ['Total Hari', Object.keys(transactionsByDate).length],
       ['Total Transaksi', allTransactions.length],
       ['Total Omset', allTransactions.reduce((sum, tx) => sum + tx.total, 0)],
       ['Transaksi Dibayar', allTransactions.filter(tx => tx.status === 'paid').length],
-      ['Transaksi Belum Dibayar', allTransactions.filter(tx => tx.status === 'pending').length]
+      ['Transaksi Belum Dibayar', allTransactions.filter(tx => tx.status === 'pending').length],
+      ['Total Pembayaran Cash', totalCashOverall],
+      ['Total Pembayaran QRIS', totalQrisOverall]
     ];
 
     const wsOverall = XLSX.utils.aoa_to_sheet(overallSummary);
@@ -322,17 +360,36 @@ export default function KasirApp() {
       />
       <h1 className="!text-xl text-center lg:!text-4xl font-bold mb-4">Kasir Booth Kopi</h1>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6 auto-rows-fr">
-        {menuItems.map((item) => (
-          <button
-            key={item.id}
-            className="bg-white rounded-xl p-4 shadow hover:opacity-90 h-full flex items-center justify-center"
-            onClick={() => addToOrder(item)}
-          >
-            <div className="font-semibold">{item.name}</div>
-            {/* <div className="text-sm">Rp {item.price.toLocaleString()}</div> */}
-          </button>
-        ))}
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold mb-3">Ice Coffee</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6 auto-rows-fr">
+          {menuItems
+            .filter(item => item.category === 'iceCoffee')
+            .map((item) => (
+              <button
+                key={item.id}
+                className="bg-white rounded-xl p-4 shadow hover:opacity-90 h-full flex items-center justify-center"
+                onClick={() => addToOrder(item)}
+              >
+                <div className="font-semibold">{item.name}</div>
+              </button>
+            ))}
+        </div>
+
+        <h2 className="text-xl font-semibold mb-3">Non-Coffee</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6 auto-rows-fr">
+          {menuItems
+            .filter(item => item.category === 'nonCoffee')
+            .map((item) => (
+              <button
+                key={item.id}
+                className="bg-white rounded-xl p-4 shadow hover:opacity-90 h-full flex items-center justify-center"
+                onClick={() => addToOrder(item)}
+              >
+                <div className="font-semibold">{item.name}</div>
+              </button>
+            ))}
+        </div>
       </div>
 
       <div className="flex gap-4 lg:flex-row flex-col">
@@ -456,7 +513,7 @@ export default function KasirApp() {
                           },
                           content: {
                             maxWidth: '400px',
-                            maxHeight: '200px',
+                            maxHeight: '300px',
                             margin: 'auto',
                             padding: '2rem',
                             borderRadius: '10px',
@@ -466,13 +523,26 @@ export default function KasirApp() {
                           },
                         }} isOpen={modalIsOpen} onRequestClose={() => setModalIsOpen(false)}>
                           <h2 className="text-lg font-semibold text-[#1E3C30]">Konfirmasi Pembayaran</h2>
-                          <p className="text-sm text-[#1E3C30] mb-4">Klik tombol di bawah untuk menyelesaikan pembayaran pesanan.</p>
-                          <button className="!bg-green-500 !text-white !px-3 !py-2 !rounded-lg hover:!bg-green-600" onClick={() => handleCompletePayment(tx.id)}>Selesaikan</button>
+                          <p className="text-sm text-[#1E3C30] mb-4">Pilih metode pembayaran:</p>
+                          <div className="flex flex-col gap-3">
+                            <button 
+                              className="!bg-green-500 !text-white !px-3 !py-2 !rounded-lg hover:!bg-green-600"
+                              onClick={() => handleCompletePayment(tx.id, 'cash')}
+                            >
+                              Bayar Cash
+                            </button>
+                            <button 
+                              className="!bg-blue-500 !text-white !px-3 !py-2 !rounded-lg hover:!bg-blue-600"
+                              onClick={() => handleCompletePayment(tx.id, 'qris')}
+                            >
+                              Bayar QRIS
+                            </button>
+                          </div>
                         </Modal>
                       </>
                     ) : (
                       <span className="text-green-500 italic px-3 py-1 rounded-lg text-sm">
-                        Sudah Dibayar
+                        Sudah Dibayar ({tx.paymentMethod === 'cash' ? 'Cash' : 'QRIS'})
                       </span>
                     )}
                   </div>
