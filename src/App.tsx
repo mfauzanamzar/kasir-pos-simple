@@ -278,7 +278,7 @@ export default function KasirApp() {
       ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
 
       // Style section headers
-      ['A4', 'A14', 'A26'].forEach(cell => {
+      ['A4', 'A14', 'A29'].forEach(cell => {
         if (ws[cell]) {
           ws[cell].s = titleStyle;
           ws['!merges'] = [
