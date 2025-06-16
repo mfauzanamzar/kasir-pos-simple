@@ -52,9 +52,20 @@ export default function KasirApp() {
   const [pendingOrders, setPendingOrders] = useState<OrderItem[]>([]);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [modalDeleteHistoryIsOpen, setModalDeleteHistoryIsOpen] = useState(false);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null);
 
   const openModalDeleteHistory = () => setModalDeleteHistoryIsOpen(true);
   const closeModalDeleteHistory = () => setModalDeleteHistoryIsOpen(false);
+
+  const openPaymentModal = (txId: number) => {
+    setSelectedTransactionId(txId);
+    setModalIsOpen(true);
+  };
+
+  const closePaymentModal = () => {
+    setModalIsOpen(false);
+    setSelectedTransactionId(null);
+  };
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -502,7 +513,7 @@ export default function KasirApp() {
                           Belum dibayar
                         </span>
                         <button
-                          onClick={() => setModalIsOpen(true)}
+                          onClick={() => openPaymentModal(tx.id)}
                           className="!bg-blue-600 !text-white !px-3 !py-1 !rounded-lg !text-sm hover:!bg-yellow-600"
                         >
                           Selesaikan
@@ -521,19 +532,19 @@ export default function KasirApp() {
                             textAlign: 'center',
                             inset: '10px',
                           },
-                        }} isOpen={modalIsOpen} onRequestClose={() => setModalIsOpen(false)}>
+                        }} isOpen={modalIsOpen} onRequestClose={closePaymentModal}>
                           <h2 className="text-lg font-semibold text-[#1E3C30]">Konfirmasi Pembayaran</h2>
                           <p className="text-sm text-[#1E3C30] mb-4">Pilih metode pembayaran:</p>
                           <div className="flex flex-col gap-3">
                             <button 
                               className="!bg-green-500 !text-white !px-3 !py-2 !rounded-lg hover:!bg-green-600"
-                              onClick={() => handleCompletePayment(tx.id, 'cash')}
+                              onClick={() => selectedTransactionId && handleCompletePayment(selectedTransactionId, 'cash')}
                             >
                               Bayar Cash
                             </button>
                             <button 
                               className="!bg-blue-500 !text-white !px-3 !py-2 !rounded-lg hover:!bg-blue-600"
-                              onClick={() => handleCompletePayment(tx.id, 'qris')}
+                              onClick={() => selectedTransactionId && handleCompletePayment(selectedTransactionId, 'qris')}
                             >
                               Bayar QRIS
                             </button>
