@@ -379,7 +379,7 @@ export default function KasirApp() {
             .map((item) => (
               <button
                 key={item.id}
-                className="bg-white rounded-xl p-4 shadow hover:opacity-90 h-full flex items-center justify-center"
+                className="rounded-xl p-4 shadow hover:opacity-90 h-full flex items-center justify-center"
                 onClick={() => addToOrder(item)}
               >
                 <div className="font-semibold">{item.name}</div>
@@ -394,7 +394,7 @@ export default function KasirApp() {
             .map((item) => (
               <button
                 key={item.id}
-                className="bg-white rounded-xl p-4 shadow hover:opacity-90 h-full flex items-center justify-center"
+                className="rounded-xl p-4 shadow hover:opacity-90 h-full flex items-center justify-center"
                 onClick={() => addToOrder(item)}
               >
                 <div className="font-semibold">{item.name}</div>
