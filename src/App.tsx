@@ -40,8 +40,8 @@ const menuItems: MenuItem[] = [
   { id: 8, name: 'Choco Ice', price: 20000, category: 'nonCoffee' },
   { id: 9, name: 'Redvelvet Ice', price: 20000, category: 'nonCoffee' },
   { id: 10, name: 'Taro Ice', price: 20000, category: 'nonCoffee' },
-  { id: 10, name: 'Matcha Ice', price: 23000, category: 'nonCoffee' },
-  { id: 10, name: 'Choco Huzelnut Ice', price: 23000, category: 'nonCoffee' },
+  { id: 11, name: 'Matcha Ice', price: 23000, category: 'nonCoffee' },
+  { id: 12, name: 'Choco Huzelnut Ice', price: 23000, category: 'nonCoffee' },
 
 ];
 
