@@ -49,6 +49,9 @@ export default function KasirApp() {
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
   const [nama, setNama] = useState('');
+  const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]); // Add order date state
+  const [orderTime, setOrderTime] = useState(new Date().toTimeString().slice(0, 5)); // Add order time state
+  const [enableCustomDateTime, setEnableCustomDateTime] = useState(false); // Toggle for custom date/time
   const [pendingOrders, setPendingOrders] = useState<OrderItem[]>([]);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [modalDeleteHistoryIsOpen, setModalDeleteHistoryIsOpen] = useState(false);
@@ -144,17 +147,35 @@ export default function KasirApp() {
 
   const handleAddOrder = () => {
     if (pendingOrders.length === 0) return alert('Tidak ada pesanan.');
+    
+    let formattedTime: string;
+    
+    if (!enableCustomDateTime) {
+      // Use current date/time if custom date/time is not enabled
+      formattedTime = new Date().toLocaleString();
+    } else {
+      // Use selected date/time if custom date/time is enabled
+      const selectedDateTime = new Date(`${orderDate}T${orderTime}`);
+      formattedTime = selectedDateTime.toLocaleString();
+    }
+    
     const newTx: Transaction = {
       id: Date.now(),
       items: pendingOrders,
       total: getTotal(),
-      time: new Date().toLocaleString(),
+      time: formattedTime,
       nama: nama,
       status: 'pending' // Set initial status as pending
     };
     saveTransactions(newTx);
     setPendingOrders([]);
     setNama('');
+    
+    // Reset to current date/time and clear modification flags
+    const now = new Date();
+    setOrderDate(now.toISOString().split('T')[0]);
+    setOrderTime(now.toTimeString().slice(0, 5));
+    
     toast.success('Pesanan berhasil dibuat!');
   };
 
@@ -180,7 +201,7 @@ export default function KasirApp() {
   };
 
   const handleExport = () => {
-    // Group transactions by date
+    // Group transactions by date from time field
     const transactionsByDate = transactions.reduce((acc, tx) => {
       const date = tx.time.split(',')[0];
       if (!acc[date]) {
@@ -300,7 +321,7 @@ export default function KasirApp() {
       });
 
       // Style headers
-      ['A15', 'B15', 'C15', 'A27', 'B27', 'C27', 'D27', 'E27', 'F27'].forEach(cell => {
+      ['A15', 'B15', 'C15', 'A27', 'B27', 'C27', 'D27', 'E27', 'F27', 'G27'].forEach(cell => {
         if (ws[cell]) ws[cell].s = headerStyle;
       });
 
@@ -418,6 +439,83 @@ export default function KasirApp() {
               className="w-full p-4 rounded-xl border bg-white text-[#1E3C30]"
             />
           </div>
+          
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="font-medium">Atur Tanggal & Waktu Kustom</label>
+              <button
+                type="button"
+                onClick={() => setEnableCustomDateTime(!enableCustomDateTime)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  enableCustomDateTime
+                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                {enableCustomDateTime ? 'Aktif' : 'Nonaktif'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mb-2">
+              {enableCustomDateTime 
+                ? 'Tanggal dan waktu kustom diaktifkan. Pesanan akan menggunakan waktu yang dipilih.'
+                : 'Menggunakan waktu saat ini untuk pesanan.'
+              }
+            </p>
+          </div>
+          
+          {enableCustomDateTime && (
+            <>
+              <div className="mb-4">
+                <label className="block mb-1 font-medium">Tanggal Pesanan</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={orderDate}
+                    onChange={(e) => {
+                      setOrderDate(e.target.value);
+                    }}
+                    className="w-full p-4 rounded-xl border bg-white text-[#1E3C30] cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    style={{ 
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'none',
+                      appearance: 'none'
+                    }}
+                    placeholder="YYYY-MM-DD"
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Klik untuk memilih tanggal atau ketik format YYYY-MM-DD</p>
+              </div>
+              <div className="mb-4">
+                <label className="block mb-1 font-medium">Waktu Pesanan</label>
+                <div className="relative">
+                  <input
+                    type="time"
+                    value={orderTime}
+                    onChange={(e) => {
+                      setOrderTime(e.target.value);
+                    }}
+                    className="w-full p-4 rounded-xl border bg-white text-[#1E3C30] cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    style={{ 
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'none',
+                      appearance: 'none'
+                    }}
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Klik untuk memilih waktu atau ketik format HH:MM</p>
+              </div>
+            </>
+          )}
           <div className="bg-white text-[#1E3C30] p-4 rounded-xl shadow mb-4">
             {pendingOrders.length === 0 && <p>Belum ada pesanan.</p>}
             {pendingOrders.map((item) => (
