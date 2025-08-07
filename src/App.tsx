@@ -519,17 +519,28 @@ export default function KasirApp() {
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <label className="font-medium">Atur Tanggal & Waktu Kustom</label>
-              <button
-                type="button"
-                onClick={() => setEnableCustomDateTime(!enableCustomDateTime)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  enableCustomDateTime
-                    ? 'bg-blue-500 text-white hover:bg-blue-600'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                {enableCustomDateTime ? 'Aktif' : 'Nonaktif'}
-              </button>
+                             <div className="flex items-center">
+                 <button
+                   type="button"
+                   onClick={() => setEnableCustomDateTime(!enableCustomDateTime)}
+                   className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 ease-in-out !p-0 focus:outline-none ${
+                     enableCustomDateTime 
+                       ? '!bg-primary' 
+                       : '!bg-gray-400'
+                   }`}
+                 >
+                   <span
+                     className={`inline-block h-5 w-5 transform rounded-full transition-all duration-300 ease-in-out shadow-md ${
+                       enableCustomDateTime 
+                         ? 'translate-x-8 !bg-white !shadow-lg' 
+                         : 'translate-x-1 !bg-gray-200'
+                     }`}
+                   />
+                 </button>
+                 <span className="ml-3 text-sm font-semibold text-white">
+                   {enableCustomDateTime ? 'Aktif' : 'Nonaktif'}
+                 </span>
+               </div>
             </div>
             <p className="text-xs text-gray-400 mb-2">
               {enableCustomDateTime 
