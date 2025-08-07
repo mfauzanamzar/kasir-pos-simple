@@ -11,7 +11,7 @@ interface MenuItem {
   id: number;
   name: string;
   price: number;
-  category: 'iceCoffee' | 'nonCoffee';
+  category: 'iceCoffee' | 'hotCoffee' | 'nonCoffee';
 }
 
 interface OrderItem extends MenuItem {
@@ -36,6 +36,21 @@ const menuItems: MenuItem[] = [
   { id: 4, name: 'Ice Coffee Lemonade', price: 23000, category: 'iceCoffee' },
   { id: 5, name: 'Ice Coffee Caramel', price: 23000, category: 'iceCoffee' },
   { id: 6, name: 'Ice Coffee Huzelnut', price: 23000, category: 'iceCoffee' },
+  { id: 7, name: 'Americano', price: 13000, category: 'iceCoffee' },
+  { id: 13, name: 'Caramel Macchiato', price: 23000, category: 'iceCoffee' },
+  { id: 14, name: 'Salted Caramel', price: 23000, category: 'iceCoffee' },
+  { id: 15, name: 'Coffee Hazelnut', price: 23000, category: 'iceCoffee' },
+  { id: 16, name: 'Coffee Pandan', price: 23000, category: 'iceCoffee' },
+
+  // Hot Coffee Section
+  { id: 20, name: 'Kopi Mantap Hot', price: 15000, category: 'hotCoffee' },
+  { id: 21, name: 'Kopi Aren Hot', price: 15000, category: 'hotCoffee' },
+  { id: 22, name: 'Caramel Macchiato Hot', price: 18000, category: 'hotCoffee' },
+  { id: 23, name: 'Salted Caramel Hot', price: 18000, category: 'hotCoffee' },
+  { id: 24, name: 'Coffee Hazelnut Hot', price: 18000, category: 'hotCoffee' },
+  { id: 25, name: 'Coffee Pandan Hot', price: 18000, category: 'hotCoffee' },
+  { id: 26, name: 'Choco hot', price: 15000, category: 'hotCoffee' },
+  { id: 27, name: 'Redvelvet hot', price: 15000, category: 'hotCoffee' },
   
   // Non-Coffee Section
   { id: 8, name: 'Choco Ice', price: 20000, category: 'nonCoffee' },
@@ -43,6 +58,7 @@ const menuItems: MenuItem[] = [
   { id: 10, name: 'Taro Ice', price: 20000, category: 'nonCoffee' },
   { id: 11, name: 'Matcha Ice', price: 23000, category: 'nonCoffee' },
   { id: 12, name: 'Choco Huzelnut Ice', price: 23000, category: 'nonCoffee' },
+  { id: 17, name: 'Vanilla Regal', price: 23000, category: 'nonCoffee' },
 
 ];
 
@@ -172,10 +188,7 @@ export default function KasirApp() {
     setPendingOrders([]);
     setNama('');
     
-    // Reset to current date/time and clear modification flags
-    const now = new Date();
-    setOrderDate(now.toISOString().split('T')[0]);
-    setOrderTime(now.toTimeString().slice(0, 5));
+ 
     
     toast.success('Pesanan berhasil dibuat!');
   };
@@ -445,6 +458,21 @@ export default function KasirApp() {
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6 auto-rows-fr">
           {menuItems
             .filter(item => item.category === 'iceCoffee')
+            .map((item) => (
+              <button
+                key={item.id}
+                className="rounded-xl p-4 shadow hover:opacity-90 h-full flex items-center justify-center"
+                onClick={() => addToOrder(item)}
+              >
+                <div className="font-semibold">{item.name}</div>
+              </button>
+            ))}
+        </div>
+
+        <h2 className="text-xl font-semibold mb-3">Hot Coffee</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6 auto-rows-fr">
+          {menuItems
+            .filter(item => item.category === 'hotCoffee')
             .map((item) => (
               <button
                 key={item.id}
