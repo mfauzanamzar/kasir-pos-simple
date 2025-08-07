@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react';
 import { RiDeleteBin6Line } from "react-icons/ri";
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import Modal from 'react-modal';
 import { toast, Zoom } from "react-toastify";
 import { ToastContainer } from "react-toastify";
@@ -211,10 +212,14 @@ export default function KasirApp() {
       return acc;
     }, {} as Record<string, Transaction[]>);
 
-    const wb = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
 
     // Process each day's transactions
     Object.entries(transactionsByDate).forEach(([date, dayTransactions]) => {
+      // Sanitize date for worksheet name - remove invalid characters
+      const sanitizedDate = date.replace(/[/\\*?:[\]]/g, '-');
+      const worksheet = workbook.addWorksheet(sanitizedDate);
+
       // Initialize itemMap with all menu items
       const itemMap: Record<string, { name: string; qty: number; income: number }> = {};
       menuItems.forEach(item => {
@@ -250,94 +255,134 @@ export default function KasirApp() {
       const paidTransactions = dayTransactions.filter(tx => tx.status === 'paid').length;
       const pendingTransactions = dayTransactions.filter(tx => tx.status === 'pending').length;
 
-      // Create combined sheet data
-      const sheetData = [
-        // Header
-        ['LAPORAN PENJUALAN'],
-        ['Tanggal', date],
-        [], // Empty row for spacing
+  
+      // 1. LAPORAN PENJUALAN Section
+      const titleRow = worksheet.addRow(['', '', 'LAPORAN PENJUALAN']);
+      titleRow.font = { bold: true, size: 16, color: { argb: 'FFFFFF' } };
+      // Color only the actual data columns (2 columns: C, D)
+      titleRow.getCell('C').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      titleRow.getCell('D').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      worksheet.mergeCells(`C1:D1`);
+      titleRow.alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // Summary Section
-        ['RINGKASAN'],
-        ['Total Transaksi', dayTransactions.length],
-        ['Total Omset', totalIncome],
-        ['Menu Terlaris', topItem.name],
-        ['Jumlah Terjual', topItem.qty],
-        ['Transaksi Dibayar', paidTransactions],
-        ['Transaksi Belum Dibayar', pendingTransactions],
-        ['Total Pembayaran Cash', totalCash],
-        ['Total Pembayaran QRIS', totalQris],
-        [], // Empty row for spacing
+      worksheet.addRow(['', '', 'Tanggal', date]);
+      worksheet.addRow([]); // Empty row for spacing
 
-        // Item Summary Section
-        ['REKAP PER ITEM'],
-        ['Menu', 'Jumlah Terjual', 'Total Pendapatan'],
-        ...itemSummary.map(item => [item.name, item.qty, item.income]),
-        ['TOTAL', totalQty, totalIncome],
-        [], // Empty row for spacing
+      // 2. REKAP PER ITEM Section
+      const itemHeader = worksheet.addRow(['', '', 'REKAP PER ITEM']);
+      itemHeader.font = { bold: true, size: 14, color: { argb: 'FFFFFF' } };
+      // Color only the actual data columns (3 columns: C, D, E)
+      itemHeader.getCell('C').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      itemHeader.getCell('D').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      itemHeader.getCell('E').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      worksheet.mergeCells(`C${itemHeader.number}:E${itemHeader.number}`);
+      itemHeader.alignment = { horizontal: 'center', vertical: 'middle' };
 
-        // Transaction Details Section
-        ['DETAIL TRANSAKSI'],
-        ['Waktu', 'Nama', 'Status', 'Metode Pembayaran', 'Item', 'Total'],
-        ...dayTransactions.map(tx => [
+      const itemTableHeader = worksheet.addRow(['', '', 'Menu', 'Jumlah Terjual', 'Total Pendapatan']);
+      // Color only the actual data columns (3 columns: C, D, E)
+      itemTableHeader.getCell('C').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F81BD' } };
+      itemTableHeader.getCell('D').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F81BD' } };
+      itemTableHeader.getCell('E').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F81BD' } };
+      itemTableHeader.font = { bold: true, color: { argb: 'FFFFFF' } };
+      itemTableHeader.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      itemSummary.forEach(item => worksheet.addRow(['', '', item.name, item.qty, item.income]));
+      const totalRow = worksheet.addRow(['', '', 'TOTAL', totalQty, totalIncome]);
+      totalRow.font = { bold: true };
+      totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E6E6E6' } };
+
+      // 3. DETAIL TRANSAKSI Section
+      worksheet.addRow([]); // Empty row for spacing
+      const detailHeader = worksheet.addRow(['', '', 'DETAIL TRANSAKSI']);
+      detailHeader.font = { bold: true, size: 14, color: { argb: 'FFFFFF' } };
+      // Color only the actual data columns (6 columns: C, D, E, F, G, H)
+      detailHeader.getCell('C').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      detailHeader.getCell('D').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      detailHeader.getCell('E').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      detailHeader.getCell('F').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      detailHeader.getCell('G').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      detailHeader.getCell('H').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      worksheet.mergeCells(`C${detailHeader.number}:H${detailHeader.number}`);
+      detailHeader.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      const detailTableHeader = worksheet.addRow(['', '', 'Waktu', 'Nama', 'Status', 'Metode Pembayaran', 'Item', 'Total']);
+      // Color only the actual data columns (6 columns: C, D, E, F, G, H)
+      detailTableHeader.getCell('C').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F81BD' } };
+      detailTableHeader.getCell('D').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F81BD' } };
+      detailTableHeader.getCell('E').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F81BD' } };
+      detailTableHeader.getCell('F').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F81BD' } };
+      detailTableHeader.getCell('G').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F81BD' } };
+      detailTableHeader.getCell('H').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '4F81BD' } };
+      detailTableHeader.font = { bold: true, color: { argb: 'FFFFFF' } };
+      detailTableHeader.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      dayTransactions.forEach(tx => {
+        worksheet.addRow([
+          '', '',
           tx.time,
           tx.nama || 'Pelanggan',
           tx.status === 'paid' ? 'Dibayar' : 'Belum Dibayar',
           tx.paymentMethod ? (tx.paymentMethod === 'cash' ? 'Cash' : 'QRIS') : '-',
           tx.items.map(i => `${i.name} x ${i.qty}`).join(', '),
           tx.total
-        ])
+        ]);
+      });
+
+      // 4. RINGKASAN Section
+      worksheet.addRow([]); // Empty row for spacing
+      const summaryHeader = worksheet.addRow(['', '', 'RINGKASAN']);
+      summaryHeader.font = { bold: true, size: 14, color: { argb: 'FFFFFF' } };
+      // Color only the actual data columns (2 columns: C, D)
+      summaryHeader.getCell('C').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      summaryHeader.getCell('D').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+      worksheet.mergeCells(`C${summaryHeader.number}:D${summaryHeader.number}`);
+      summaryHeader.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      worksheet.addRow(['', '', 'Total Transaksi', dayTransactions.length]);
+      worksheet.addRow(['', '', 'Total Omset', totalIncome]);
+      worksheet.addRow(['', '', 'Menu Terlaris', topItem.name]);
+      worksheet.addRow(['', '', 'Jumlah Terjual', topItem.qty]);
+      worksheet.addRow(['', '', 'Transaksi Dibayar', paidTransactions]);
+      worksheet.addRow(['', '', 'Transaksi Belum Dibayar', pendingTransactions]);
+      worksheet.addRow(['', '', 'Total Pembayaran Cash', totalCash]);
+      worksheet.addRow(['', '', 'Total Pembayaran QRIS', totalQris]);
+
+      // Set column widths based on new layout (starting from column C)
+      const columnWidths = [
+        { key: 'A', width: 5 },  // Empty column
+        { key: 'B', width: 5 },  // Empty column
+        { key: 'C', width: 20 }, // Waktu
+        { key: 'D', width: 15 }, // Nama
+        { key: 'E', width: 15 }, // Status
+        { key: 'F', width: 30 }, // Metode Pembayaran
+        { key: 'G', width: 40 }, // Item
+        { key: 'H', width: 30 }  // Total
       ];
+      worksheet.columns = columnWidths;
 
-      // Create worksheet
-      const ws = XLSX.utils.aoa_to_sheet(sheetData);
-
-      // Apply styling
-      const titleStyle = {
-        font: { bold: true, color: { rgb: 'FFFFFF' } },
-        fill: { fgColor: { rgb: '1E3C30' } },
-        alignment: { horizontal: 'center', vertical: 'center' }
-      };
-
-      const headerStyle = {
-        font: { bold: true, color: { rgb: 'FFFFFF' } },
-        fill: { fgColor: { rgb: '4F81BD' } },
-        alignment: { horizontal: 'center', vertical: 'center' }
-      };
-
-      // Style the title
-      ws['A1'].s = titleStyle;
-      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
-
-      // Style section headers
-      ['A4', 'A14', 'A29'].forEach(cell => {
-        if (ws[cell]) {
-          ws[cell].s = titleStyle;
-          ws['!merges'] = [
-            ...(ws['!merges'] || []),
-            { s: { r: parseInt(cell.slice(1)) - 1, c: 0 }, e: { r: parseInt(cell.slice(1)) - 1, c: 5 } }
-          ];
+      // Auto-fit columns based on content
+      worksheet.columns.forEach(column => {
+        if (column.key) {
+          column.width = Math.max(column.width || 10, 20); // Minimum width of 15
         }
       });
 
-      // Style headers
-      ['A15', 'B15', 'C15', 'A27', 'B27', 'C27', 'D27', 'E27', 'F27', 'G27'].forEach(cell => {
-        if (ws[cell]) ws[cell].s = headerStyle;
-      });
+      // Auto-fit rows
+      for (let i = 1; i <= worksheet.rowCount; i++) {
+        const row = worksheet.getRow(i);
+        if (row.height) {
+          row.height = Math.max(row.height, 30); // Minimum height of 20
+        }
+      }
 
-      // Set column widths
-      ws['!cols'] = [
-        { wch: 20 }, // Waktu
-        { wch: 15 }, // Nama
-        { wch: 15 }, // Status
-        { wch: 15 }, // Metode Pembayaran
-        { wch: 40 }, // Item
-        { wch: 15 }  // Total
-      ];
-
-      // Add sheet to workbook
-      const formattedDate = date.replace(/\//g, '-');
-      XLSX.utils.book_append_sheet(wb, ws, formattedDate);
+      // Add borders to data tables (starting from column C)
+      const detailDataRange = worksheet.getCell(`C${detailTableHeader.number + 1}:H${worksheet.rowCount}`);
+      detailDataRange.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      };
     });
 
     // Add overall summary sheet
@@ -349,30 +394,33 @@ export default function KasirApp() {
       .filter(tx => tx.status === 'paid' && tx.paymentMethod === 'qris')
       .reduce((sum, tx) => sum + tx.total, 0);
 
-    const overallSummary = [
-      ['RINGKASAN KESELURUHAN'],
-      ['Total Hari', Object.keys(transactionsByDate).length],
-      ['Total Transaksi', allTransactions.length],
-      ['Total Omset', allTransactions.reduce((sum, tx) => sum + tx.total, 0)],
-      ['Transaksi Dibayar', allTransactions.filter(tx => tx.status === 'paid').length],
-      ['Transaksi Belum Dibayar', allTransactions.filter(tx => tx.status === 'pending').length],
-      ['Total Pembayaran Cash', totalCashOverall],
-      ['Total Pembayaran QRIS', totalQrisOverall]
+    const overallSummarySheet = workbook.addWorksheet('Ringkasan');
+    
+    const overallTitle = overallSummarySheet.addRow(['RINGKASAN KESELURUHAN']);
+    overallTitle.font = { bold: true, size: 16, color: { argb: 'FFFFFF' } };
+    overallTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1E3C30' } };
+    overallSummarySheet.mergeCells('A1:B1');
+    overallTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    overallSummarySheet.addRow(['Total Hari', Object.keys(transactionsByDate).length]);
+    overallSummarySheet.addRow(['Total Transaksi', allTransactions.length]);
+    overallSummarySheet.addRow(['Total Omset', allTransactions.reduce((sum, tx) => sum + tx.total, 0)]);
+    overallSummarySheet.addRow(['Transaksi Dibayar', allTransactions.filter(tx => tx.status === 'paid').length]);
+    overallSummarySheet.addRow(['Transaksi Belum Dibayar', allTransactions.filter(tx => tx.status === 'pending').length]);
+    overallSummarySheet.addRow(['Total Pembayaran Cash', totalCashOverall]);
+    overallSummarySheet.addRow(['Total Pembayaran QRIS', totalQrisOverall]);
+
+    // Set column widths for summary sheet
+    overallSummarySheet.columns = [
+      { key: 'A', width: 20 },
+      { key: 'B', width: 15 }
     ];
 
-    const wsOverall = XLSX.utils.aoa_to_sheet(overallSummary);
-    wsOverall['A1'].s = {
-      font: { bold: true, color: { rgb: 'FFFFFF' } },
-      fill: { fgColor: { rgb: '1E3C30' } },
-      alignment: { horizontal: 'center', vertical: 'center' }
-    };
-    wsOverall['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
-    wsOverall['!cols'] = [{ wch: 20 }, { wch: 15 }];
-
-    XLSX.utils.book_append_sheet(wb, wsOverall, 'Ringkasan');
-
     const fileName = `riwayat-penjualan-${new Date().toLocaleDateString().replace(/\//g, '-')}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+    workbook.xlsx.writeBuffer().then(buffer => {
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(blob, fileName);
+    });
   };
 
   return (
