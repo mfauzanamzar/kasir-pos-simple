@@ -101,6 +101,23 @@ export default function KasirApp() {
     };
   }, []);
 
+  // Close mobile keyboard on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      // Close keyboard when user scrolls on mobile
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    };
+
+    // Add scroll listener with passive option for better performance
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
   const handleInstallClick = async () => {
     if (!deferredPrompt || !(deferredPrompt as any).prompt) return;
 
@@ -505,16 +522,22 @@ export default function KasirApp() {
 
         <div className="lg:w-1/2">
           <h2 className="text-lg font-semibold mb-2">Pesanan:</h2>
-          <div className="mb-4">
-            <label className="block mb-1 font-medium">Nama Pelanggan</label>
-            <input
-              type="text"
-              value={nama}
-              onChange={(e) => setNama(e.target.value)}
-              placeholder="Masukkan nama"
-              className="w-full p-4 rounded-xl border bg-white text-[#1E3C30]"
-            />
-          </div>
+                     <div className="mb-4">
+             <label className="block mb-1 font-medium">Nama Pelanggan</label>
+             <input
+               type="text"
+               value={nama}
+               onChange={(e) => setNama(e.target.value)}
+               onBlur={() => {
+                 // Close mobile keyboard when input loses focus
+                 if (document.activeElement instanceof HTMLElement) {
+                   document.activeElement.blur();
+                 }
+               }}
+               placeholder="Masukkan nama"
+               className="w-full p-4 rounded-xl border bg-white text-[#1E3C30]"
+             />
+           </div>
           
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
